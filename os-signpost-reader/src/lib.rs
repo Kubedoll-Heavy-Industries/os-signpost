@@ -13,8 +13,7 @@
 //! // Application has already called global::set_tracer_provider(...)
 //!
 //! let _guard = SignpostOtelExporter::builder()
-//!     .subsystem(Subsystem::METAL)
-//!     .subsystem(Subsystem::CORE_ANIMATION)
+//!     .subsystems(&[Subsystem::METAL, Subsystem::CORE_ANIMATION])
 //!     .start()?;
 //! # Ok(())
 //! # }

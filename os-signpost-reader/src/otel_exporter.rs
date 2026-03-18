@@ -19,9 +19,7 @@ use crate::subsystem::Subsystem;
 /// // Application has already called global::set_tracer_provider(...)
 ///
 /// let _guard = SignpostOtelExporter::builder()
-///     .subsystem(Subsystem::METAL)
-///     .subsystem(Subsystem::CORE_ANIMATION)
-///     .channel_capacity(8192)
+///     .subsystems(&[Subsystem::METAL, Subsystem::CORE_ANIMATION])
 ///     .start()?;
 /// # Ok(())
 /// # }
@@ -49,37 +47,39 @@ pub struct SignpostOtelExporterBuilder {
 }
 
 impl SignpostOtelExporterBuilder {
-    /// Add a subsystem to capture signposts from.
+    /// Set the subsystems to capture signposts from.
     ///
-    /// Can be called multiple times. If no subsystems are added, all
-    /// subsystems are captured (high volume — consider filtering).
+    /// If not called, all subsystems are captured (high volume — consider
+    /// filtering).
     ///
     /// ```rust,no_run
     /// # use os_signpost_reader::{SignpostOtelExporter, Subsystem};
     /// SignpostOtelExporter::builder()
-    ///     .subsystem(Subsystem::METAL)
-    ///     .subsystem(Subsystem::CORE_ANIMATION)
-    ///     .subsystem(Subsystem::custom("ai.mistralrs"))
+    ///     .subsystems(&[
+    ///         Subsystem::METAL,
+    ///         Subsystem::CORE_ANIMATION,
+    ///         Subsystem::custom("ai.mistralrs"),
+    ///     ])
     /// # ;
     /// ```
-    pub fn subsystem(mut self, subsystem: Subsystem) -> Self {
-        self.subsystems.push(subsystem.into_string());
+    pub fn subsystems(mut self, subsystems: &[Subsystem]) -> Self {
+        self.subsystems = subsystems.iter().map(|s| s.as_str().to_string()).collect();
         self
     }
 
-    /// Add a category filter within matched subsystems.
+    /// Set the category filters within matched subsystems.
     ///
-    /// If no categories are added, all categories are captured.
-    pub fn category(mut self, category: impl Into<String>) -> Self {
-        self.categories.push(category.into());
+    /// If not called, all categories are captured.
+    pub fn categories(mut self, categories: &[&str]) -> Self {
+        self.categories = categories.iter().map(|s| s.to_string()).collect();
         self
     }
 
-    /// Add a process ID to monitor. Can be called multiple times.
+    /// Set the process IDs to monitor.
     ///
-    /// If no PIDs are added, only the current process is monitored.
-    pub fn pid(mut self, pid: i32) -> Self {
-        self.pids.push(pid);
+    /// If not called, only the current process is monitored.
+    pub fn pids(mut self, pids: &[i32]) -> Self {
+        self.pids = pids.to_vec();
         self
     }
 
@@ -108,8 +108,6 @@ impl SignpostOtelExporterBuilder {
             .start()?;
 
         let bridge = SignpostOtelBridge::new(rx);
-
-        // Spawn the bridge on the tokio runtime.
         tokio::spawn(bridge.run());
 
         Ok(SignpostOtelExporterGuard {
