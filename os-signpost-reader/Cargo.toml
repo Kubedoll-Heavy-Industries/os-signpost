@@ -10,7 +10,7 @@ homepage = "https://github.com/Kubedoll-Heavy-Industries/os-signpost"
 documentation = "https://docs.rs/os-signpost-reader"
 keywords = ["macos", "instruments", "profiling", "signpost", "observability"]
 categories = ["development-tools::profiling", "os::macos-apis"]
-readme = "../README.md"
+readme = "README.md"
 
 [features]
 default = []
