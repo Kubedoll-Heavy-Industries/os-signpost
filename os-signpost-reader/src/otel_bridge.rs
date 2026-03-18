@@ -1,26 +1,8 @@
-//! OpenTelemetry adapter — emits signpost entries as OTel spans via the global tracer.
+//! Internal: OpenTelemetry bridge — emits signpost entries as OTel spans via
+//! the global tracer.
 //!
-//! Enable the `opentelemetry` feature to use this module.
-//!
-//! This bridge uses the **global tracer** (`opentelemetry::global::tracer()`),
-//! following the OTel library instrumentation pattern. The application owns
-//! the `TracerProvider` and exporter configuration — this crate only depends
-//! on the `opentelemetry` API crate, not the SDK or any exporter.
-//!
-//! # Usage
-//!
-//! ```rust,no_run
-//! use os_signpost_reader::{SignpostReader, SignpostFilter};
-//! use os_signpost_reader::otel_bridge::SignpostOtelBridge;
-//!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Application has already called global::set_tracer_provider(...)
-//!
-//! let (guard, rx) = SignpostReader::new(SignpostFilter::default()).start()?;
-//! SignpostOtelBridge::new(rx).run().await;
-//! # Ok(())
-//! # }
-//! ```
+//! This is an implementation detail of [`crate::SignpostOtelExporter`].
+//! Use the exporter's builder API instead of this module directly.
 
 use std::collections::HashMap;
 
