@@ -1,45 +1,57 @@
-# Signpost library for macOS
+# os-signpost
 
-[Signposts](https://developer.apple.com/documentation/os/logging/recording_performance_data)
-are a low-overhead way of measuring performance of tasks and algorithms on macOS
-and iOS.
+Rust bindings to Apple's [`os_signpost`](https://developer.apple.com/documentation/os/signpost) API for performance instrumentation in [Instruments.app](https://developer.apple.com/instruments/).
 
-This library exposes a Rust interface to the Signposts API which automatically
-turns itself off on unsupported platforms.
+Forked from [mhallin/signpost-rs](https://github.com/mhallin/signpost-rs) and rewritten with a modern API, direct FFI (no C shim), and production-grade CI/CD.
+
+## Features
+
+- **RAII intervals** that automatically end on drop
+- **Point-in-time events** with optional metadata messages
+- **Zero-cost no-ops** on non-Apple platforms
+- **No C compiler required** — direct FFI to stable `libsystem_trace` functions
+- **`disable-signposts` feature** to force no-ops everywhere (for benchmarking overhead)
 
 ## Usage
 
-Use a combination of events and intervals to measure times of algorithms and
-tasks in your application when running under Instruments. The use of macros
-allow construction of null-terminated C strings at compile time rather than at
-runtime.
-
 ```rust
-use signpost::{OsLog, const_poi_logger};
+use os_signpost::{Signposter, Category};
+use std::sync::LazyLock;
 
-static LOGGER: OsLog = const_poi_logger!("com.yourcompany.project");
+static PROFILER: LazyLock<Signposter> = LazyLock::new(|| {
+    Signposter::new("com.example.myapp", Category::PointsOfInterest)
+});
 
-fn myalgorithm() {
-    // Create a signpost interval for your function. The interval ends
-    // when the variable goes out of scope.
-    let _interval = signpost::begin_interval!(
-        LOGGER,
-        /* Interval ID */ 1,
-        /* Interval name */ "My Algorithm"
-    );
+fn do_work() {
+    // Scoped interval — visible as a range in Instruments
+    let _interval = PROFILER.begin_interval("compute");
 
-    if condition {
-        // Emit a single event
-        signpost::emit_event!(
-            LOGGER,
-            /* Event ID */ 2,
-            /* Event name */ "Condition happened"
-        );
-    }
+    // Point-in-time event
+    PROFILER.event("checkpoint");
+
+    // Interval with metadata
+    let interval = PROFILER.begin_interval_with_message("batch", "size=1024");
+    // ... work ...
+    interval.end_with_message("processed 1024 items");
 }
 ```
 
-## Disabling the signposts
+## Platform Support
 
-Enable the `disable-signposts` feature to make the logging function no-ops even
-on macOS/iOS.
+| Platform | Behavior |
+|----------|----------|
+| macOS / iOS / tvOS / watchOS | Full signpost emission |
+| Linux / Windows / other | All methods are zero-cost no-ops |
+
+## Minimum Supported Rust Version
+
+1.94
+
+## License
+
+Licensed under either of
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
+
+at your option.

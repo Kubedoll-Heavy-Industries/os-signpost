@@ -1,0 +1,6 @@
+# cargo-vet audits
+# https://mozilla.github.io/cargo-vet/
+
+[criteria]
+
+[audits]

@@ -1,6 +1,21 @@
-[workspace]
-members = [
-    "signpost",
-    "signpost_derive",
-    "signpost_tests",
-]
+[package]
+name = "os-signpost"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.94"
+license = "MIT OR Apache-2.0"
+description = "Rust bindings to Apple's os_signpost API for performance instrumentation in Instruments.app"
+repository = "https://github.com/Kubedoll-Heavy-Industries/os-signpost"
+homepage = "https://github.com/Kubedoll-Heavy-Industries/os-signpost"
+documentation = "https://docs.rs/os-signpost"
+keywords = ["macos", "instruments", "profiling", "signpost", "performance"]
+categories = ["development-tools::profiling", "os::macos-apis"]
+readme = "README.md"
+
+[features]
+default = []
+disable-signposts = []
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
