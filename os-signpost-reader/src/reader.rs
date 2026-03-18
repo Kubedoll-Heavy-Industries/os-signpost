@@ -57,8 +57,8 @@ pub enum SignpostType {
 
 /// Controls which signposts the reader captures.
 ///
-/// Filtering happens at the `OSActivityStream` level (kernel-side) to avoid
-/// flooding the channel with irrelevant entries.
+/// Filtering happens in the delegate callback to avoid flooding the channel
+/// with irrelevant entries.
 #[derive(Debug, Clone, Default)]
 pub struct SignpostFilter {
     /// Process IDs to monitor. Empty = current process only.
@@ -125,7 +125,6 @@ impl SignpostReader {
 pub struct SignpostReaderGuard {
     #[cfg(target_os = "macos")]
     pub(crate) inner: crate::ffi::StreamGuardInner,
-    dropped: std::sync::atomic::AtomicU64,
     // Marker to make this type !Send (PhantomData<*const ()> is !Send)
     _not_send: std::marker::PhantomData<*const ()>,
 }
@@ -133,14 +132,22 @@ pub struct SignpostReaderGuard {
 impl SignpostReaderGuard {
     /// Number of entries dropped due to channel backpressure.
     pub fn dropped_count(&self) -> u64 {
-        self.dropped.load(std::sync::atomic::Ordering::Relaxed)
+        #[cfg(target_os = "macos")]
+        {
+            self.inner
+                .dropped
+                .load(std::sync::atomic::Ordering::Relaxed)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            0
+        }
     }
 
     #[cfg(target_os = "macos")]
     pub(crate) fn new(inner: crate::ffi::StreamGuardInner) -> Self {
         Self {
             inner,
-            dropped: std::sync::atomic::AtomicU64::new(0),
             _not_send: std::marker::PhantomData,
         }
     }
