@@ -74,6 +74,9 @@ use backend as imp;
 )))]
 use noop as imp;
 
+#[cfg(feature = "tracing")]
+pub mod layer;
+
 use std::fmt;
 
 /// A signpost logger bound to a subsystem and category.
