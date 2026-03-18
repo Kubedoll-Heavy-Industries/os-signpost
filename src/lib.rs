@@ -200,4 +200,8 @@ impl SignpostInterval {
 // Apple documents os_log_t as safe to use from multiple threads.
 unsafe impl Send for Signposter {}
 unsafe impl Sync for Signposter {}
+
+// SignpostInterval is Send (can be moved to another thread to end there)
+// but intentionally NOT Sync — concurrent Drop + end_with_message would
+// produce duplicate interval-end signposts.
 unsafe impl Send for SignpostInterval {}

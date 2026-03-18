@@ -76,7 +76,7 @@ impl SignpostLayer {
 
         let mut cache = SIGNPOSTER.lock().unwrap();
         for &(sub, sp) in cache.iter() {
-            if std::ptr::eq(sub, self.subsystem) {
+            if sub == self.subsystem {
                 return sp;
             }
         }

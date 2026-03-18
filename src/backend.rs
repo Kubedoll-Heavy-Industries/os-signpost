@@ -2,6 +2,7 @@
 
 use std::ffi::CString;
 use std::fmt;
+use std::mem::ManuallyDrop;
 use std::os::raw::c_char;
 use std::sync::Once;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -22,14 +23,16 @@ const SIGNPOST_INTERVAL_BEGIN: OsSignpostType = 1;
 const SIGNPOST_INTERVAL_END: OsSignpostType = 2;
 
 unsafe extern "C" {
-    static mut __dso_handle: usize;
+    // Linker-synthesized symbol pointing to the Mach-O header of this DSO.
+    // Declared as immutable u8 — we only ever take its address.
+    static __dso_handle: u8;
 
     fn os_log_create(subsystem: *const c_char, category: *const c_char) -> OsLogT;
     fn os_signpost_id_generate(log: OsLogT) -> OsSignpostId;
     fn os_signpost_enabled(log: OsLogT) -> bool;
 
     fn _os_signpost_emit_with_name_impl(
-        dso: *mut usize,
+        dso: *const u8,
         log: OsLogT,
         r#type: OsSignpostType,
         spid: OsSignpostId,
@@ -96,7 +99,7 @@ impl SignposterInner {
 
     pub(crate) fn event(&self, name: &str, msg: Option<impl fmt::Display>) {
         let log = self.get_log();
-        let name_c = CString::new(name).unwrap_or_else(|_| CString::new("?").unwrap());
+        let name_c = CString::new(name).expect("signpost name must not contain NUL bytes");
         let spid = unsafe { os_signpost_id_generate(log) };
 
         match msg {
@@ -114,7 +117,7 @@ impl SignposterInner {
         msg: Option<impl fmt::Display>,
     ) -> SignpostIntervalInner {
         let log = self.get_log();
-        let name_c = CString::new(name).unwrap_or_else(|_| CString::new("?").unwrap());
+        let name_c = CString::new(name).expect("signpost name must not contain NUL bytes");
         let spid = unsafe { os_signpost_id_generate(log) };
 
         match msg {
@@ -135,7 +138,6 @@ impl SignposterInner {
             log,
             spid,
             name: name_c,
-            ended: false,
         }
     }
 }
@@ -148,28 +150,26 @@ pub(crate) struct SignpostIntervalInner {
     log: OsLogT,
     spid: OsSignpostId,
     name: CString,
-    ended: bool,
 }
 
 impl SignpostIntervalInner {
-    pub(crate) fn end_with_message(mut self, msg: impl fmt::Display) {
+    pub(crate) fn end_with_message(self, msg: impl fmt::Display) {
+        let this = ManuallyDrop::new(self);
         let formatted = msg.to_string();
         emit(
-            self.log,
+            this.log,
             SIGNPOST_INTERVAL_END,
-            self.spid,
-            &self.name,
+            this.spid,
+            &this.name,
             Some(&formatted),
         );
-        self.ended = true;
+        // Drop is suppressed — interval ended exactly once.
     }
 }
 
 impl Drop for SignpostIntervalInner {
     fn drop(&mut self) {
-        if !self.ended {
-            emit(self.log, SIGNPOST_INTERVAL_END, self.spid, &self.name, None);
-        }
+        emit(self.log, SIGNPOST_INTERVAL_END, self.spid, &self.name, None);
     }
 }
 
@@ -197,13 +197,14 @@ fn emit(
             // For one public string:
             //   summary = 0x02 (has_non_scalar_items)
             //   count = 0x01
-            //   descriptor: type=0x32 (public string), size=0x08 (pointer size on 64-bit)
+            //   descriptor: type=0x22 (StringKind=2 << 4 | IsPublic=0x2)
+            //   size: 0x08 (pointer size on 64-bit)
             //   data: 8-byte pointer to the C string
             let ptr_bytes = (text_c.as_ptr() as u64).to_le_bytes();
             let mut buf = [0u8; 12];
             buf[0] = 0x02; // summary: has non-scalar items
             buf[1] = 0x01; // one argument
-            buf[2] = 0x32; // type: public string
+            buf[2] = 0x22; // descriptor: public string (StringKind << 4 | IsPublic)
             buf[3] = 0x08; // size: 8 bytes (pointer)
             buf[4..12].copy_from_slice(&ptr_bytes);
 
@@ -212,7 +213,7 @@ fn emit(
 
             unsafe {
                 _os_signpost_emit_with_name_impl(
-                    &raw mut __dso_handle,
+                    &raw const __dso_handle,
                     log,
                     r#type,
                     spid,
@@ -230,7 +231,7 @@ fn emit(
 
             unsafe {
                 _os_signpost_emit_with_name_impl(
-                    &raw mut __dso_handle,
+                    &raw const __dso_handle,
                     log,
                     r#type,
                     spid,
