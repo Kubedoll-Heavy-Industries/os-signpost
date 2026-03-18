@@ -15,7 +15,7 @@ readme = "../README.md"
 [features]
 default = []
 tracing = ["dep:tracing", "dep:tracing-core", "dep:tokio"]
-otlp = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tokio"]
+opentelemetry = ["dep:opentelemetry", "dep:tokio"]
 
 [dependencies]
 # Core
@@ -30,10 +30,8 @@ objc2-foundation = { version = "0.3", optional = false }
 tracing = { version = "0.1", optional = true }
 tracing-core = { version = "0.1", optional = true }
 
-# feature = "otlp"
+# feature = "opentelemetry" (API only — application owns SDK/exporter)
 opentelemetry = { version = "0.31", optional = true }
-opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
-opentelemetry-otlp = { version = "0.31", optional = true }
 
 # Shared async runtime for adapters
 tokio = { version = "1", features = ["rt", "macros"], optional = true }
