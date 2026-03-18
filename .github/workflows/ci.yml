@@ -36,8 +36,9 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all --check
 
-  clippy:
-    name: Clippy
+  # os-signpost (write crate) — runs on all platforms
+  clippy-write:
+    name: Clippy (os-signpost)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -45,10 +46,10 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --all-features
+      - run: cargo clippy -p os-signpost --all-targets --all-features
 
-  test:
-    name: Test (${{ matrix.toolchain }} on ${{ matrix.os }})
+  test-write:
+    name: Test os-signpost (${{ matrix.toolchain }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -70,24 +71,52 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.toolchain }}
-      - name: Test (default features)
-        run: cargo test
-      - name: Test (all features)
-        run: cargo test --all-features
+      - run: cargo test -p os-signpost
+      - run: cargo test -p os-signpost --all-features
+
+  # os-signpost-reader (read crate) — macOS only
+  clippy-reader:
+    name: Clippy (os-signpost-reader)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy -p os-signpost-reader --all-targets --all-features
+
+  test-reader:
+    name: Test os-signpost-reader (${{ matrix.toolchain }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ["1.94", stable, nightly]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.toolchain }}
+      - run: cargo test -p os-signpost-reader
+      - run: cargo test -p os-signpost-reader --all-features
 
   docs:
     name: Documentation
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       RUSTDOCFLAGS: "-Dwarnings"
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --all-features --no-deps
+      - run: cargo doc --all --all-features --no-deps
 
   semver:
-    name: Semver
+    name: Semver (os-signpost)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -96,4 +125,4 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks
       - name: Check semver compatibility
-        run: cargo semver-checks check-release
+        run: cargo semver-checks check-release -p os-signpost
