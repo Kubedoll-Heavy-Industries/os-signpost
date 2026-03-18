@@ -74,6 +74,8 @@ use backend as imp;
 )))]
 use noop as imp;
 
+pub mod activity;
+
 #[cfg(feature = "tracing")]
 pub mod layer;
 
