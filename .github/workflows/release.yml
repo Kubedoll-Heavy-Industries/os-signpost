@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  ci:
+    name: CI Gate
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  security:
+    name: Security Gate
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/security.yml
+
+  publish:
+    name: Publish to crates.io
+    needs: [release-please, ci, security]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish
+        uses: Kubedoll-Heavy-Industries/publish-crates@dist/v2
+        with:
+          trusted-publishing: true
+
+  provenance:
+    name: Build Provenance
+    needs: [release-please, publish]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Package crate
+        run: cargo package --allow-dirty
+      - name: Attest crate
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: target/package/os-signpost-*.crate
+      - name: Upload crate to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for crate_file in target/package/*.crate; do
+            filename=$(basename "$crate_file")
+            tag="v${filename#os-signpost-}"
+            tag="${tag%.crate}"
+            gh release upload "$tag" "$crate_file" --clobber || true
+          done
+
+  sbom:
+    name: SBOM
+    needs: [release-please, publish]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-cyclonedx
+        run: cargo install cargo-cyclonedx
+      - name: Generate SBOM
+        run: cargo cyclonedx --format json
+      - name: Upload SBOM to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$(gh release list --limit 1 --json tagName -q '.[0].tagName')" \
+            bom.json#os-signpost-sbom.cdx.json \
+            --clobber || true
