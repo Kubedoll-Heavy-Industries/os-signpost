@@ -1,0 +1,49 @@
+[package]
+name = "os-signpost-reader"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+license = "MIT OR Apache-2.0"
+description = "In-process reader for macOS system signposts via OSActivityStream"
+repository = "https://github.com/Kubedoll-Heavy-Industries/os-signpost"
+homepage = "https://github.com/Kubedoll-Heavy-Industries/os-signpost"
+documentation = "https://docs.rs/os-signpost-reader"
+keywords = ["macos", "instruments", "profiling", "signpost", "observability"]
+categories = ["development-tools::profiling", "os::macos-apis"]
+readme = "README.md"
+
+[features]
+default = []
+tracing = ["dep:tracing", "dep:tracing-core", "dep:tokio"]
+opentelemetry = ["dep:opentelemetry", "dep:tokio"]
+
+[dependencies]
+# Core
+flume = "0.11"
+thiserror = "2"
+
+# ObjC runtime (macOS only, but always compiled — stubs on other platforms)
+objc2 = { version = "0.6", optional = false }
+objc2-foundation = { version = "0.3", optional = false }
+
+# feature = "tracing"
+tracing = { version = "0.1", optional = true }
+tracing-core = { version = "0.1", optional = true }
+
+# feature = "opentelemetry" (API only — application owns SDK/exporter)
+opentelemetry = { version = "0.31", optional = true }
+
+# Shared async runtime for adapters
+tokio = { version = "1", features = ["rt", "macros"], optional = true }
+
+[dev-dependencies]
+os-signpost = { path = "../os-signpost" }
+tokio = { version = "1", features = ["rt", "macros", "time"] }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+# objc2 won't compile on non-macOS without this
+objc2 = { version = "0.6", features = [] }

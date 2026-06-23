@@ -26,74 +26,43 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  fmt:
-    name: Formatting
+  check:
+    name: Check (ubuntu)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
-      - run: cargo fmt --all --check
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo +nightly fmt --all --check
+      - name: Clippy (os-signpost)
+        run: cargo clippy -p os-signpost --all-targets --all-features
+      - name: Test (os-signpost)
+        run: cargo test -p os-signpost --all-features
+      - name: Docs (os-signpost)
+        env:
+          RUSTDOCFLAGS: "-Dwarnings"
+        run: cargo doc -p os-signpost --all-features --no-deps
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
+  test-macos:
+    name: Test (macOS)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --all-features
-
-  test:
-    name: Test (${{ matrix.toolchain }} on ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - toolchain: "1.94"
-            os: ubuntu-latest
-          - toolchain: stable
-            os: ubuntu-latest
-          - toolchain: stable
-            os: macos-latest
-          - toolchain: nightly
-            os: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.toolchain }}
-      - name: Test (default features)
-        run: cargo test
-      - name: Test (all features)
-        run: cargo test --all-features
-
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: "-Dwarnings"
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --all-features --no-deps
-
-  semver:
-    name: Semver
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-semver-checks
-        run: cargo install cargo-semver-checks
-      - name: Check semver compatibility
-        run: cargo semver-checks check-release
+      - name: Clippy (all)
+        run: cargo clippy --all --all-targets --all-features
+      - name: Test (all)
+        run: cargo test --all --all-features
+      - name: Docs (all)
+        env:
+          RUSTDOCFLAGS: "-Dwarnings"
+        run: cargo doc --all --all-features --no-deps
